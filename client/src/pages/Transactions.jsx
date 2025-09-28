@@ -76,7 +76,7 @@ function Transactions() {
 
       {showForm && (
         <div style={{
-          background: '#f8f9fa',
+          background: '#0c0c0cff',
           padding: '20px',
           borderRadius: '8px',
           marginBottom: '20px',
@@ -159,7 +159,7 @@ function Transactions() {
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
+              <tr style={{ background: '#0b0b0bff', borderBottom: '2px solid #dee2e6' }}>
                 <th style={{ padding: '10px', textAlign: 'left' }}>Date</th>
                 <th style={{ padding: '10px', textAlign: 'left' }}>Description</th>
                 <th style={{ padding: '10px', textAlign: 'left' }}>Category</th>
@@ -178,7 +178,7 @@ function Transactions() {
                   <td style={{ padding: '10px' }}>
                     <span style={{
                       padding: '4px 8px',
-                      background: '#e3f2fd',
+                      background: '#45494bff',
                       borderRadius: '4px',
                       fontSize: '12px'
                     }}>
