@@ -1,6 +1,6 @@
 const Transaction = require('../models/Transaction');
 
-// Get all transactions for user
+// get all transactions for user
 const getTransactions = async (req, res) => {
   try {
     const transactions = await Transaction.find({ userId: req.user._id }).sort({ date: -1 });
@@ -10,7 +10,7 @@ const getTransactions = async (req, res) => {
   }
 };
 
-// Create transaction
+
 const createTransaction = async (req, res) => {
   try {
     const transaction = await Transaction.create({
@@ -23,7 +23,7 @@ const createTransaction = async (req, res) => {
   }
 };
 
-// Delete transaction
+
 const deleteTransaction = async (req, res) => {
   try {
     const transaction = await Transaction.findOneAndDelete({

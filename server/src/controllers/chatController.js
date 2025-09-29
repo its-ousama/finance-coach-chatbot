@@ -6,7 +6,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// Enhanced system prompt for more detailed financial coaching
+
 const SYSTEM_PROMPT = `You are an expert personal finance coach and advisor. You provide detailed, actionable financial advice with specific recommendations.
 
 CONVERSATION STYLE:
@@ -23,52 +23,102 @@ WHEN ANALYZING SPENDING:
 - Ask clarifying questions about spending habits
 - Provide a concrete action plan
 
+SPENDING PACE TRACKING:
+- ALWAYS acknowledge spending pace alerts when provided
+- If user is overspending, be direct but encouraging about the need to reduce spending
+- Give specific daily budget targets when user is over pace
+- Celebrate when user is under budget and suggest ways to save the extra money
+
 ALWAYS:
 - Give detailed responses (4-6 sentences minimum)
-- Include specific dollar/euro amounts when giving advice
+- Include specific euro amounts when giving advice
 - Ask relevant follow-up questions to understand their situation better
-- Provide actionable next steps`;
+- Provide actionable next steps
+- Reference the user's actual data (salary, expenses, categories) in your responses`;
 
-// Chat with AI
+
 const chat = async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, conversationHistory = [] } = req.body;
     const userId = req.user._id;
 
-    // Get user's recent transactions for context
+    // helps get user's recent transactions for context
     const transactions = await Transaction.find({ userId })
       .sort({ date: -1 });
       
-    console.log(`Found ${transactions.length} transactions for user:`, transactions.map(t => `€${t.amount} ${t.type} ${t.category}`));
+    console.log(`Found ${transactions.length} transactions for user`);
 
-    // Get user info for salary (fetch fresh from database)
+    // helps get user info for salary (fetch fresh from database)
     const user = await User.findById(userId);
     const userSalary = user.salary || 0;
     
-    // Calculate totals
+    // helps calculate totals
     const totalExpenses = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
     const totalTransactionIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
     const totalIncome = userSalary + totalTransactionIncome;
     
-    console.log(`User salary: €${userSalary}, Transaction income: €${totalTransactionIncome}, Total income: €${totalIncome}, Total expenses: €${totalExpenses}`);
+    console.log(`Income: €${totalIncome}, Expenses: €${totalExpenses}`);
 
-    // Build detailed context message
+    // helps calculate spending pace based on date
+    const today = new Date();
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const dayOfMonth = today.getDate();
+    const daysRemaining = daysInMonth - dayOfMonth;
+    
+    const dailyBudget = totalIncome / daysInMonth;
+    const shouldHaveSpent = dailyBudget * dayOfMonth;
+    const remainingBudget = totalIncome - totalExpenses;
+    const dailyBudgetRemaining = daysRemaining > 0 ? remainingBudget / daysRemaining : 0;
+    const burnRate = dayOfMonth > 0 ? (totalExpenses / dayOfMonth) * daysInMonth : 0;
+    
+    // helps build spending pace alert
+    let spendingPaceStatus = '';
+    if (totalExpenses > shouldHaveSpent) {
+      const overBy = totalExpenses - shouldHaveSpent;
+      const percentOver = ((overBy / shouldHaveSpent) * 100).toFixed(0);
+      spendingPaceStatus = `⚠️ SPENDING PACE ALERT ⚠️
+        User is on day ${dayOfMonth} of ${daysInMonth} (${daysRemaining} days remaining).
+        Expected spending by now: €${shouldHaveSpent.toFixed(2)}
+        Actual spending: €${totalExpenses.toFixed(2)}
+        OVERSPENDING by €${overBy.toFixed(2)} (${percentOver}% over pace)
+        Projected month-end spending at current rate: €${burnRate.toFixed(2)}
+        Remaining daily budget to get back on track: €${dailyBudgetRemaining.toFixed(2)}/day
+
+        ACTION REQUIRED: User needs to reduce spending significantly to avoid exceeding budget.`;
+    } else {
+      const underBy = shouldHaveSpent - totalExpenses;
+      spendingPaceStatus = `✅ SPENDING PACE: ON TRACK
+        User is on day ${dayOfMonth} of ${daysInMonth} (${daysRemaining} days remaining).
+        Expected spending: €${shouldHaveSpent.toFixed(2)}
+        Actual spending: €${totalExpenses.toFixed(2)}
+        Under budget by: €${underBy.toFixed(2)}
+        Remaining daily budget: €${dailyBudgetRemaining.toFixed(2)}/day for next ${daysRemaining} days
+
+        GREAT JOB: User is managing budget well!`;
+    }
+
+    // helps build detailed context message
     let contextMessage = '';
     let expensesByCategory = {};
     
     if (transactions.length > 0 || userSalary > 0) {
-      contextMessage = `FINANCIAL OVERVIEW: User has monthly salary of €${userSalary}`;
+      contextMessage = `📊 FINANCIAL OVERVIEW:
+        Monthly salary: €${userSalary}`;
       
       if (totalTransactionIncome > 0) {
-        contextMessage += ` plus €${totalTransactionIncome} additional income`;
+        contextMessage += `
+        Additional income: €${totalTransactionIncome}`;
       }
       
-      contextMessage += ` for total income of €${totalIncome}. `;
+      contextMessage += `
+        Total monthly income: €${totalIncome}
+        Total expenses: €${totalExpenses}
+        Available funds: €${remainingBudget.toFixed(2)}
+
+${spendingPaceStatus}`;
       
       if (totalExpenses > 0) {
-        contextMessage += `Total expenses: €${totalExpenses}. Available funds: €${totalIncome - totalExpenses}. `;
         
-        // Add expense breakdown by category
         expensesByCategory = transactions
           .filter(t => t.type === 'expense')
           .reduce((acc, t) => {
@@ -77,31 +127,60 @@ const chat = async (req, res) => {
           }, {});
         
         if (Object.keys(expensesByCategory).length > 0) {
-          contextMessage += `Expense breakdown: ${Object.entries(expensesByCategory)
-            .map(([cat, amount]) => `${cat} €${amount} (${((amount/totalExpenses)*100).toFixed(0)}%)`)
-            .join(', ')}. `;
+          contextMessage += `
+
+            💰 EXPENSE BREAKDOWN BY CATEGORY:`;
+          
+          
+          const sortedCategories = Object.entries(expensesByCategory)
+            .sort(([,a], [,b]) => b - a);
+          
+          sortedCategories.forEach(([cat, amount]) => {
+            const percentage = ((amount/totalExpenses)*100).toFixed(0);
+            contextMessage += `
+            - ${cat}: €${amount.toFixed(2)} (${percentage}% of total spending)`;
+          });
+          
+          
+          const biggestCategory = sortedCategories[0];
+          contextMessage += `
+
+            🎯 BIGGEST SPENDING AREA: ${biggestCategory[0]} at €${biggestCategory[1].toFixed(2)}`;
         }
-      } else {
-        contextMessage += `No expenses recorded yet. Available funds: €${totalIncome}. `;
       }
       
-      contextMessage += `Total transactions: ${transactions.length}.`;
+      contextMessage += `
+
+        📝 Total transactions recorded: ${transactions.length}`;
     } else {
-      contextMessage = 'User has not provided salary information or recorded any transactions yet.';
+      contextMessage = `📊 FINANCIAL OVERVIEW:
+        User has not provided salary information or recorded any transactions yet.
+        Ask user to provide their monthly salary and start tracking expenses.`;
     }
     
-    console.log('Context sent to AI:', contextMessage);
+    console.log('Context sent to AI:\n', contextMessage);
 
-    // Call OpenAI
+    // Build messages array with conversation history
+    const messages = [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: contextMessage }
+    ];
+    
+    // this adds conversation history if provided (last 5 messages to stay within token limits)
+    if (conversationHistory && conversationHistory.length > 0) {
+      const recentHistory = conversationHistory.slice(-5);
+      messages.push(...recentHistory);
+    }
+    
+    // this adds current user message
+    messages.push({ role: "user", content: message });
+
+    // call OpenAI
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "system", content: contextMessage },
-        { role: "user", content: message }
-      ],
+      messages: messages,
       temperature: 0.7,
-      max_tokens: 300
+      max_tokens: 400 //good enough for such a bot
     });
 
     const aiResponse = completion.choices[0].message.content;
@@ -111,9 +190,19 @@ const chat = async (req, res) => {
       context: {
         totalIncome,
         totalExpenses,
-        available: totalIncome - totalExpenses,
+        available: remainingBudget,
         transactionCount: transactions.length,
-        expensesByCategory
+        expensesByCategory,
+        spendingPace: {
+          dayOfMonth,
+          daysInMonth,
+          daysRemaining,
+          shouldHaveSpent: shouldHaveSpent.toFixed(2),
+          actualSpent: totalExpenses.toFixed(2),
+          isOverBudget: totalExpenses > shouldHaveSpent,
+          dailyBudgetRemaining: dailyBudgetRemaining.toFixed(2),
+          projectedMonthEnd: burnRate.toFixed(2)
+        }
       }
     });
 

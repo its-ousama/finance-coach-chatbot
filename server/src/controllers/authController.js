@@ -8,19 +8,18 @@ const generateToken = (id) => {
   });
 };
 
-// @desc    Register new user
-// @route   POST /api/auth/register
+// register new user
 const register = async (req, res) => {
   try {
     const { email, password, name, salary } = req.body;
 
-    // Check if user exists
+    
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ error: 'User already exists' });
     }
 
-    // Create user
+    
     const user = await User.create({
       email,
       password,
@@ -39,13 +38,11 @@ const register = async (req, res) => {
   }
 };
 
-// @desc    Login user
-// @route   POST /api/auth/login
+//login user
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Check for user
     const user = await User.findOne({ email });
     
     if (user && (await user.comparePassword(password))) {
@@ -63,14 +60,12 @@ const login = async (req, res) => {
   }
 };
 
-// @desc    Get user profile
-// @route   GET /api/auth/profile
+//get user profile
 const getProfile = async (req, res) => {
   res.json(req.user);
 };
 
-// @desc    Update user salary
-// @route   PUT /api/auth/salary
+//update user salary
 const updateSalary = async (req, res) => {
   try {
     const { salary } = req.body;

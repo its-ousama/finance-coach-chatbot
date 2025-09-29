@@ -44,17 +44,14 @@ function Dashboard() {
   const updateSalary = async (e) => {
     e.preventDefault();
     try {
-      // Update salary in backend database
       const response = await api.put('/auth/salary', { salary: parseFloat(newSalary) });
       
-      // Update local storage with new salary
       const updatedUser = { ...user, salary: parseFloat(newSalary) };
       localStorage.setItem('user', JSON.stringify(updatedUser));
       setUser(updatedUser);
       setShowSalaryForm(false);
       setNewSalary('');
       
-      // Refresh dashboard data
       fetchTransactions();
     } catch (error) {
       console.error('Error updating salary:', error);
@@ -68,7 +65,60 @@ function Dashboard() {
     navigate('/login');
   };
 
-  // Generate dynamic budget tip based on spending
+  // Calculate spending pace based on date
+  const getSpendingPace = () => {
+    const today = new Date();
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const dayOfMonth = today.getDate();
+    const daysRemaining = daysInMonth - dayOfMonth;
+    
+    const monthlyBudget = stats.income;
+    const dailyBudget = monthlyBudget / daysInMonth;
+    const shouldHaveSpent = dailyBudget * dayOfMonth;
+    const spentSoFar = stats.expenses;
+    const difference = spentSoFar - shouldHaveSpent;
+    
+    const remainingBudget = stats.income - spentSoFar;
+    const dailyBudgetRemaining = daysRemaining > 0 ? remainingBudget / daysRemaining : 0;
+    
+    const burnRate = dayOfMonth > 0 ? (spentSoFar / dayOfMonth) * daysInMonth : 0;
+    
+    let status = 'good';
+    let statusText = 'On Track';
+    let statusColor = '#2e7d32';
+    let bgColor = '#e8f5e9';
+    
+    if (difference > monthlyBudget * 0.2) {
+      status = 'danger';
+      statusText = 'Overspending';
+      statusColor = '#c62828';
+      bgColor = '#ffebee';
+    } else if (difference > 0) {
+      status = 'warning';
+      statusText = 'Caution';
+      statusColor = '#f57c00';
+      bgColor = '#fff3e0';
+    }
+    
+    return {
+      dayOfMonth,
+      daysInMonth,
+      daysRemaining,
+      shouldHaveSpent: shouldHaveSpent.toFixed(2),
+      spentSoFar: spentSoFar.toFixed(2),
+      difference: Math.abs(difference).toFixed(2),
+      isOver: difference > 0,
+      dailyBudgetRemaining: dailyBudgetRemaining.toFixed(2),
+      projectedSpending: burnRate.toFixed(2),
+      status,
+      statusText,
+      statusColor,
+      bgColor,
+      monthName: today.toLocaleDateString('en-US', { month: 'long' })
+    };
+  };
+
+  
   const getBudgetTip = () => {
     if (transactions.length === 0) {
       return "Start tracking your expenses to see where your money goes. Add your first transaction to get personalized insights!";
@@ -82,7 +132,6 @@ function Dashboard() {
       return "Great! You haven't recorded any expenses yet. Start tracking to get personalized budget advice.";
     }
     
-    // Find expense categories and sort by amount
     const expensesByCategory = transactions
       .filter(t => t.type === 'expense')
       .reduce((acc, t) => {
@@ -94,16 +143,14 @@ function Dashboard() {
       .sort(([,a], [,b]) => b - a);
     
     if (sortedCategories.length >= 2) {
-      // Skip bills/housing as it's usually the highest and hardest to change
       let targetCategory = sortedCategories[0];
       if (targetCategory[0] === 'bills' && sortedCategories.length > 1) {
-        targetCategory = sortedCategories[1]; // Use second highest
+        targetCategory = sortedCategories[1];
       }
       
       const [category, amount] = targetCategory;
       const percentage = ((amount / stats.expenses) * 100).toFixed(0);
       
-      // Give category-specific advice
       let advice = "";
       switch(category) {
         case 'dining':
@@ -144,20 +191,28 @@ function Dashboard() {
 
   if (!user) return <div>Loading...</div>;
 
+  const spendingPace = getSpendingPace();
+
   return (
-    <div style={{ padding: '20px' }}>
+    <div style={{ 
+      padding: '20px 10%', 
+      minHeight: '100vh',
+      width: '100%',
+      boxSizing: 'border-box',
+      background: 'linear-gradient(135deg, #0d0d0dff 30%, #764ba2 70%)'
+    }}>
       {/* Header */}
       <div style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center',
         marginBottom: '30px',
-        borderBottom: '2px solid #ddd',
+        borderBottom: '2px solid rgba(255, 255, 255, 0.2)',
         paddingBottom: '10px'
       }}>
-        <h1>Finance Coach Dashboard</h1>
+        <h1 style={{ color: 'white', margin: 0 }}>Finance Coach Dashboard</h1>
         <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <span>Welcome, {user.name}!</span>
+          <span style={{ color: 'white' }}>Welcome, {user.name}!</span>
           <button 
             onClick={handleLogout}
             style={{
@@ -185,11 +240,12 @@ function Dashboard() {
           onClick={() => navigate('/dashboard')}
           style={{
             padding: '10px 20px',
-            background: '#007bff',
+            background: '#764ba2',
             color: 'white',
             border: 'none',
             borderRadius: '4px',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            fontWeight: 'bold'
           }}
         >
           Dashboard
@@ -198,9 +254,9 @@ function Dashboard() {
           onClick={() => navigate('/transactions')}
           style={{
             padding: '10px 20px',
-            background: '#6c757d',
+            background: 'rgba(255, 255, 255, 0.1)',
             color: 'white',
-            border: 'none',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
             borderRadius: '4px',
             cursor: 'pointer'
           }}
@@ -211,9 +267,9 @@ function Dashboard() {
           onClick={() => navigate('/chat')}
           style={{
             padding: '10px 20px',
-            background: '#28a745',
+            background: 'rgba(255, 255, 255, 0.1)',
             color: 'white',
-            border: 'none',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
             borderRadius: '4px',
             cursor: 'pointer'
           }}
@@ -225,7 +281,7 @@ function Dashboard() {
       {/* Stats Cards */}
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+        gridTemplateColumns: 'repeat(3, 1fr)',
         gap: '20px',
         marginBottom: '30px'
       }}>
@@ -303,20 +359,113 @@ function Dashboard() {
         </div>
       </div>
 
+      {/* Spending Pace Tracker */}
+      <div style={{
+        padding: '20px',
+        background: spendingPace.bgColor,
+        borderRadius: '8px',
+        border: `2px solid ${spendingPace.statusColor}`,
+        marginBottom: '30px'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+          <h2 style={{ margin: 0, color: '#333' }}>📊 Spending Pace</h2>
+          <span style={{ 
+            padding: '6px 12px', 
+            background: spendingPace.statusColor, 
+            color: 'white', 
+            borderRadius: '20px',
+            fontSize: '14px',
+            fontWeight: 'bold'
+          }}>
+            {spendingPace.statusText}
+          </span>
+        </div>
+        
+        <div style={{ marginBottom: '15px' }}>
+          <p style={{ margin: '5px 0', color: '#666' }}>
+            {spendingPace.monthName} Day {spendingPace.dayOfMonth} of {spendingPace.daysInMonth} 
+            <strong style={{ color: '#333' }}> ({spendingPace.daysRemaining} days remaining)</strong>
+          </p>
+        </div>
+
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '15px',
+          marginBottom: '15px'
+        }}>
+          <div>
+            <small style={{ color: '#666' }}>You've spent:</small>
+            <p style={{ margin: '5px 0', fontSize: '20px', fontWeight: 'bold', color: spendingPace.statusColor }}>
+              €{spendingPace.spentSoFar}
+            </p>
+            <small style={{ color: '#666' }}>Expected: €{spendingPace.shouldHaveSpent}</small>
+          </div>
+
+          <div>
+            <small style={{ color: '#666' }}>Daily budget remaining:</small>
+            <p style={{ margin: '5px 0', fontSize: '20px', fontWeight: 'bold', color: '#2e7d32' }}>
+              €{spendingPace.dailyBudgetRemaining}/day
+            </p>
+            <small style={{ color: '#666' }}>For next {spendingPace.daysRemaining} days</small>
+          </div>
+
+          <div>
+            <small style={{ color: '#666' }}>Projected month-end:</small>
+            <p style={{ margin: '5px 0', fontSize: '20px', fontWeight: 'bold', color: spendingPace.statusColor }}>
+              €{spendingPace.projectedSpending}
+            </p>
+            <small style={{ color: '#666' }}>
+              {parseFloat(spendingPace.projectedSpending) > stats.income ? '⚠️ Over budget' : '✅ Within budget'}
+            </small>
+          </div>
+        </div>
+
+        {spendingPace.isOver ? (
+          <div style={{ 
+            padding: '12px', 
+            background: 'rgba(211, 47, 47, 0.1)', 
+            borderRadius: '6px',
+            borderLeft: '4px solid #d32f2f'
+          }}>
+            <strong style={{ color: '#c62828' }}>💡 Action needed: </strong>
+            <span style={{ color: '#666' }}>
+              You're €{spendingPace.difference} over pace. 
+              {parseFloat(spendingPace.dailyBudgetRemaining) > 0 
+                ? ` Stick to €${spendingPace.dailyBudgetRemaining}/day to stay on track.`
+                : ' Consider reducing spending immediately to avoid overspending.'}
+            </span>
+          </div>
+        ) : (
+          <div style={{ 
+            padding: '12px', 
+            background: 'rgba(46, 125, 50, 0.1)', 
+            borderRadius: '6px',
+            borderLeft: '4px solid #2e7d32'
+          }}>
+            <strong style={{ color: '#2e7d32' }}>✅ Great job! </strong>
+            <span style={{ color: '#666' }}>
+              You're €{spendingPace.difference} under pace. 
+              Keep up the good work and consider saving the extra money!
+            </span>
+          </div>
+        )}
+      </div>
+
       {/* Quick Actions */}
       <div style={{
         padding: '20px',
-        background: '#f8f9fa',
+        background: 'linear-gradient(135deg, #0d0d0dff 30%, #764ba2 70%',
         borderRadius: '8px',
         border: '1px solid #dee2e6'
       }}>
-        <h2 style={{ color: '#333' }}>Quick Actions</h2>
+        <h2 style={{ color: '#ddb5f2ff' }}>Quick Actions</h2>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button 
             onClick={() => navigate('/transactions')}
             style={{
               padding: '12px 24px',
-              background: '#007bff',
+              background: '#171617ff',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
@@ -329,7 +478,7 @@ function Dashboard() {
             onClick={() => navigate('/chat')}
             style={{
               padding: '12px 24px',
-              background: '#28a745',
+              background: '#764ba2',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
@@ -341,16 +490,17 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Tips Section - Updated with dynamic content */}
+      {/* Tips Section */}
       <div style={{
         marginTop: '30px',
         padding: '20px',
-        background: '#fff3cd',
+        background: 'rgba(255, 243, 205, 0.15)',
         borderRadius: '8px',
-        border: '1px solid #ffc107'
+        border: '1px solid rgba(255, 193, 7, 0.3)',
+        backdropFilter: 'blur(10px)'
       }}>
-        <h3 style={{ margin: '0 0 10px 0', color: '#856404' }}>💡 Budget Tip</h3>
-        <p style={{ margin: 0, color: '#856404' }}>
+        <h3 style={{ margin: '0 0 10px 0', color: '#ffd54f' }}>💡 Budget Tip</h3>
+        <p style={{ margin: 0, color: 'white' }}>
           {getBudgetTip()}
         </p>
       </div>
@@ -358,26 +508,27 @@ function Dashboard() {
       {/* Recent Transactions */}
       {transactions.length > 0 && (
         <div style={{ marginTop: '30px' }}>
-          <h2 style={{ color: '#333' }}>Recent Transactions</h2>
+          <h2 style={{ color: 'white' }}>Recent Transactions</h2>
           <div style={{
-            background: 'white',
+            background: 'rgba(255, 255, 255, 0.1)',
             padding: '20px',
             borderRadius: '8px',
-            border: '1px solid #dee2e6'
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            backdropFilter: 'blur(10px)'
           }}>
             {transactions.slice(0, 5).map((t) => (
               <div key={t._id} style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 padding: '10px 0',
-                borderBottom: '1px solid #eee'
+                borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
               }}>
                 <div>
-                  <strong style={{ color: '#333' }}>{t.description || t.category}</strong>
+                  <strong style={{ color: 'white' }}>{t.description || t.category}</strong>
                   <br />
-                  <small style={{ color: '#666' }}>{new Date(t.date).toLocaleDateString()}</small>
+                  <small style={{ color: 'rgba(255, 255, 255, 0.7)' }}>{new Date(t.date).toLocaleDateString()}</small>
                 </div>
-                <strong style={{ color: t.type === 'income' ? '#2e7d32' : '#c62828' }}>
+                <strong style={{ color: t.type === 'income' ? '#4caf50' : '#ef5350' }}>
                   {t.type === 'income' ? '+' : '-'}€{t.amount}
                 </strong>
               </div>
