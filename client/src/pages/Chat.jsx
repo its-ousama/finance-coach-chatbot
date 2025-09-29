@@ -56,7 +56,7 @@ function Chat() {
           style={{ 
             padding: '8px 16px', 
             cursor: 'pointer',
-            background: '#6c757d',
+            background: 'linear-gradient(135deg, #0d0d0dff 0%, #764ba2 100%)',
             color: 'white',
             border: 'none',
             borderRadius: '4px'
@@ -67,7 +67,7 @@ function Chat() {
       </div>
 
       <div style={{ 
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: 'linear-gradient(135deg, #0d0d0dff 0%, #764ba2 100%)',
         padding: '20px',
         borderRadius: '8px',
         marginBottom: '20px',
@@ -87,8 +87,8 @@ function Chat() {
               onClick={() => setInput(question)}
               style={{
                 padding: '8px 16px',
-                background: '#e3f2fd',
-                border: '1px solid #90caf9',
+                background: '#0e0e0eff',
+                border: '1px solid #7c1481ff',
                 borderRadius: '20px',
                 cursor: 'pointer',
                 fontSize: '14px'
@@ -104,11 +104,11 @@ function Chat() {
       <div style={{
         flex: 1,
         overflowY: 'auto',
-        background: '#f8f9fa',
+        background: 'linear-gradient(135deg, #0d0d0dff 30%, #764ba2 70%)',
         padding: '20px',
         borderRadius: '8px',
         marginBottom: '20px',
-        border: '1px solid #dee2e6'
+        border: '1px solid #7c1481ff'
       }}>
         {messages.map((msg, idx) => (
           <div
@@ -124,13 +124,13 @@ function Chat() {
                 maxWidth: '70%',
                 padding: '12px 16px',
                 borderRadius: '12px',
-                background: msg.role === 'user' ? '#007bff' : 'white',
+                background: msg.role === 'user' ? '#200240ff' : 'white',
                 color: msg.role === 'user' ? 'white' : 'black',
                 boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
               }}
             >
               {msg.role === 'assistant' && (
-                <div style={{ fontWeight: 'bold', marginBottom: '5px', color: '#667eea' }}>
+                <div style={{ fontWeight: 'bold', marginBottom: '5px', color: '#23182bff' }}>
                   AI Coach
                 </div>
               )}

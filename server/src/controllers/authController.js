@@ -69,4 +69,28 @@ const getProfile = async (req, res) => {
   res.json(req.user);
 };
 
-module.exports = { register, login, getProfile };
+// @desc    Update user salary
+// @route   PUT /api/auth/salary
+const updateSalary = async (req, res) => {
+  try {
+    const { salary } = req.body;
+    
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { salary: parseFloat(salary) },
+      { new: true }
+    ).select('-password');
+    
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      salary: user.salary,
+      message: 'Salary updated successfully'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+module.exports = { register, login, getProfile, updateSalary };

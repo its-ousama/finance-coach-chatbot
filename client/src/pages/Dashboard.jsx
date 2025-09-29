@@ -44,13 +44,21 @@ function Dashboard() {
   const updateSalary = async (e) => {
     e.preventDefault();
     try {
+      // Update salary in backend database
+      const response = await api.put('/auth/salary', { salary: parseFloat(newSalary) });
+      
+      // Update local storage with new salary
       const updatedUser = { ...user, salary: parseFloat(newSalary) };
       localStorage.setItem('user', JSON.stringify(updatedUser));
       setUser(updatedUser);
       setShowSalaryForm(false);
+      setNewSalary('');
+      
+      // Refresh dashboard data
       fetchTransactions();
     } catch (error) {
       console.error('Error updating salary:', error);
+      alert('Failed to update salary. Please try again.');
     }
   };
 
@@ -58,6 +66,80 @@ function Dashboard() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/login');
+  };
+
+  // Generate dynamic budget tip based on spending
+  const getBudgetTip = () => {
+    if (transactions.length === 0) {
+      return "Start tracking your expenses to see where your money goes. Add your first transaction to get personalized insights!";
+    }
+    
+    if (stats.available < 0) {
+      return "⚠️ You're spending more than you earn! Consider reducing expenses in your biggest controllable spending categories.";
+    }
+    
+    if (stats.expenses === 0) {
+      return "Great! You haven't recorded any expenses yet. Start tracking to get personalized budget advice.";
+    }
+    
+    // Find expense categories and sort by amount
+    const expensesByCategory = transactions
+      .filter(t => t.type === 'expense')
+      .reduce((acc, t) => {
+        acc[t.category] = (acc[t.category] || 0) + t.amount;
+        return acc;
+      }, {});
+    
+    const sortedCategories = Object.entries(expensesByCategory)
+      .sort(([,a], [,b]) => b - a);
+    
+    if (sortedCategories.length >= 2) {
+      // Skip bills/housing as it's usually the highest and hardest to change
+      let targetCategory = sortedCategories[0];
+      if (targetCategory[0] === 'bills' && sortedCategories.length > 1) {
+        targetCategory = sortedCategories[1]; // Use second highest
+      }
+      
+      const [category, amount] = targetCategory;
+      const percentage = ((amount / stats.expenses) * 100).toFixed(0);
+      
+      // Give category-specific advice
+      let advice = "";
+      switch(category) {
+        case 'dining':
+          advice = "Try meal prepping or cooking at home more often to save 20-30%.";
+          break;
+        case 'entertainment':
+          advice = "Look for free activities or group discounts to reduce this by 15-25%.";
+          break;
+        case 'transport':
+          advice = "Consider walking, biking, or carpooling to cut this expense.";
+          break;
+        case 'shopping':
+          advice = "Try the 24-hour rule before purchases and make shopping lists.";
+          break;
+        case 'groceries':
+          advice = "Plan meals, buy in bulk, and use store brands to save 10-20%.";
+          break;
+        default:
+          advice = "Consider ways to reduce this category by 10-20% to increase savings.";
+      }
+      
+      return `Your biggest controllable expense is ${category} (€${amount}, ${percentage}% of spending). ${advice}`;
+    }
+    
+    if (stats.income > 0) {
+      const savingsRate = ((stats.available / stats.income) * 100).toFixed(0);
+      if (savingsRate < 10) {
+        return "You're saving less than 10% of your income. Try to increase savings by reducing discretionary spending.";
+      } else if (savingsRate < 20) {
+        return `You're saving ${savingsRate}% of your income. Great start! Aim for 20% to build a strong financial foundation.`;
+      } else {
+        return `Excellent! You're saving ${savingsRate}% of your income. Consider investing some of these savings for long-term growth.`;
+      }
+    }
+    
+    return "Track more expenses to get personalized budget advice based on your spending patterns.";
   };
 
   if (!user) return <div>Loading...</div>;
@@ -259,7 +341,7 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Tips Section */}
+      {/* Tips Section - Updated with dynamic content */}
       <div style={{
         marginTop: '30px',
         padding: '20px',
@@ -269,7 +351,7 @@ function Dashboard() {
       }}>
         <h3 style={{ margin: '0 0 10px 0', color: '#856404' }}>💡 Budget Tip</h3>
         <p style={{ margin: 0, color: '#856404' }}>
-          Start tracking your expenses to see where your money goes. Our AI can help you identify spending patterns and save more!
+          {getBudgetTip()}
         </p>
       </div>
 
